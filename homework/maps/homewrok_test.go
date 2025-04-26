@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"reflect"
 	"testing"
 
@@ -9,36 +10,142 @@ import (
 
 // go test -v homework_test.go
 
-type OrderedMap struct {
-	// need to implement
+type OrderedMap[K cmp.Ordered, V any] struct {
+	m   map[K]V
+	bst *node[K, V]
 }
 
-func NewOrderedMap() OrderedMap {
-	return OrderedMap{} // need to implement
+type node[K cmp.Ordered, V any] struct {
+	key   K
+	value V
+	left  *node[K, V]
+	right *node[K, V]
 }
 
-func (m *OrderedMap) Insert(key, value int) {
-	// need to implement
+func (n *node[K, V]) forEach(action func(K, V)) {
+	if n == nil {
+		return
+	}
+
+	n.left.forEach(action)
+	action(n.key, n.value)
+	n.right.forEach(action)
 }
 
-func (m *OrderedMap) Erase(key int) {
-	// need to implement
+func (n *node[K, V]) search(key K) (foundNode, parent *node[K, V]) {
+	for n != nil {
+		if n.key == key {
+			return n, parent
+		}
+
+		if key < n.key {
+			parent = n
+			n = n.left
+		} else {
+			parent = n
+			n = n.right
+		}
+	}
+
+	return nil, parent
 }
 
-func (m *OrderedMap) Contains(key int) bool {
-	return false // need to implement
+func (n *node[K, V]) insert(key K, val V) {
+	for n != nil {
+		if key < n.key {
+			n = n.left
+		} else {
+			n = n.right
+		}
+	}
+
+	n = &node[K, V]{key: key, value: val}
 }
 
-func (m *OrderedMap) Size() int {
-	return 0 // need to implement
+func (n *node[K, V]) erase(key K) {
+	target, parent := n.search(key)
+	if target == nil {
+		return
+	}
+	if target.right == nil {
+		if parent == nil {
+			n = target.left
+		} else {
+			if target == parent.left {
+				parent.left = target.left
+			} else {
+				parent.right = target.left
+			}
+		}
+	} else {
+		leftmost := target.right
+		parent = nil
+		for leftmost.left != nil {
+			parent = leftmost
+			leftmost = leftmost.left
+		}
+		if parent != nil {
+			parent.left = leftmost.right
+		} else {
+			target.right = leftmost.right
+		}
+		target.key = leftmost.key
+		target.value = leftmost.value
+	}
 }
 
-func (m *OrderedMap) ForEach(action func(int, int)) {
-	// need to implement
+func NewOrderedMap[K cmp.Ordered, V any]() OrderedMap[K, V] {
+	return OrderedMap[K, V]{
+		m:   map[K]V{},
+		bst: nil,
+	}
+}
+
+func (m *OrderedMap[K, V]) Insert(key K, value V) {
+	if _, ok := m.m[key]; ok {
+		m.m[key] = value
+		return //
+	}
+
+	m.m[key] = value
+	_, parent := m.bst.search(key)
+	if parent == nil {
+		m.bst = &node[K, V]{key: key}
+		return
+	}
+
+	if key < parent.key {
+		parent.left = &node[K, V]{key: key}
+		return
+	}
+
+	parent.right = &node[K, V]{key: key}
+}
+
+func (m *OrderedMap[K, V]) Erase(key K) {
+	if _, ok := m.m[key]; !ok {
+		return
+	}
+
+	delete(m.m, key)
+	m.bst.erase(key)
+}
+
+func (m *OrderedMap[K, V]) Contains(key K) bool {
+	_, ok := m.m[key]
+	return ok
+}
+
+func (m *OrderedMap[K, V]) Size() int {
+	return len(m.m)
+}
+
+func (m *OrderedMap[K, V]) ForEach(action func(K, V)) {
+	m.bst.forEach(action)
 }
 
 func TestCircularQueue(t *testing.T) {
-	data := NewOrderedMap()
+	data := NewOrderedMap[int, int]()
 	assert.Zero(t, data.Size())
 
 	data.Insert(10, 10)
